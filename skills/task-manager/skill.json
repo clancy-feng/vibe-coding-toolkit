@@ -1,0 +1,8 @@
+{
+  "name": "task-manager",
+  "version": "1.0.10",
+  "description": "AI 项目治理体系执行引擎。严格按照 memory/ 下的 RULES.md、ROLES.md、WORKFLOW_TASK_DRIVEN.md 规则，自动完成任务的创建、认领、流转、验证、归档全流程。仅由 WorkBuddy 意图识别模块隐式调用。",
+  "entry": "SKILL.md",
+  "type": "skill",
+  "internal": true
+}
