@@ -1,7 +1,7 @@
 {
   "name": "health-check",
-  "version": "1.0.0",
-  "description": "项目健康巡检（项目体检医生，只诊断不修理）。扫描六项隐患：任务状态一致性、契约完整性、Skill 版本一致性、跨模块改文件、日志大小、TASKS 格式合规；按 P0/P1/P2 分级报告。",
+  "version": "1.0.2",
+  "description": "Vibe coding toolkit 系列SKill——项目健康巡检，扫描六项隐患：任务状态一致性、契约完整性、Skill 版本一致性、跨模块改文件、日志大小、TASKS 格式合规；按 P0/P1/P2 分级报告。",
   "entry": "SKILL.md",
   "type": "skill"
 }

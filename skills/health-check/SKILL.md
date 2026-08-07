@@ -1,10 +1,11 @@
 ---
 name: "health-check"
 title: "health-check"
-description: "项目健康巡检（项目体检医生，只诊断不修理）。触发词：给项目做个体检 / 项目体检 / 健康巡检 / 巡检一下 / 跑体检。扫描六项隐患：①任务状态一致性(防假成功)②契约完整性两步(P0/P1)③Skill版本一致性④跨模块改文件⑤日志>10MB⑥TASKS格式合规；按 P0(致命)/P1(隐患)/P2(偏差) 分级，用非技术语言报告并提供选项，等待人类授权后经 task-manager 新开任务修复。绝不自动修改任何文件。"
+description: "Vibe coding toolkit 系列SKill——项目健康巡检。触发词：给项目做个体检 / 项目体检 / 健康巡检 / 巡检一下 / 跑体检。扫描六项隐患：①任务状态一致性(防假成功)②契约完整性两步(P0/P1)③Skill版本一致性④跨模块改文件⑤日志>10MB⑥TASKS格式合规；按 P0(致命)/P1(隐患)/P2(偏差) 分级，用非技术语言报告并提供选项，等待人类授权后经 task-manager 新开任务修复。绝不自动修改任何文件。"
 agent_created: true
-version: "1.0.0"
+version: "1.0.2"
 priority: 90
+slug: "health-check"
 ---
 
 # health-check 项目体检 Skill
@@ -12,10 +13,6 @@ priority: 90
 > 脚本: `scripts/check.sh`（与 SKILL.md 同目录）
 > 在项目根目录（含 `.git`）下运行，脚本自动检测仓库路径与 `.workbuddy/memory/`。
 > 是 Vibe 治理框架第四核心组件，与 `vibe-project-init` / `commit-check` / `task-manager` 并列。
-
-> ## ⚠️ 版本锁定（冻结）
-> 
-> 本 Skill 自 **2026-07-30** 起锁定为 **v1.0.0**。**未经用户单独明确授权，禁止任何功能性修改**（含巡检逻辑、分级标准、触发词、输出格式、check.sh 行为）。唯一允许的维护：文档说明与版本号等非功能性调整。
 
 ## 核心定位（不可动摇）
 
