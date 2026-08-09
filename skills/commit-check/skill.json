@@ -1,7 +1,0 @@
-{
-  "name": "commit-check",
-  "version": "1.0.0",
-  "description": "AI Commit 真实性 & 合规性验证。AI 声称已提交后，用确定性脚本验证 commit 是否真实、前缀是否合规、是否属于当前项目。",
-  "entry": "SKILL.md",
-  "type": "skill"
-}
