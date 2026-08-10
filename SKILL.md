@@ -3,8 +3,13 @@ name: "vibe-coding-toolkit"
 title: "Vibe Coding Toolkit"
 slug: "vibe-coding-toolkit"
 version: "1.0.0"
-description: "Vibe Coding Toolkit — 面向非技术用户的 AI 项目治理工具包（单包，含 4 个子命令：health-check / commit-check / task-manager / project-init）。零网络访问、零环境变量读取、零数据外传；所有写入仅限当前项目目录内，不读取或写入项目目录之外的任何文件。各子命令的触发词与用法见下方「子命令路由表」。"
+description: "Vibe Coding Toolkit — 面向非技术用户的 AI 项目治理工具包（单包，含 4 个子命令：health-check / commit-check / task-manager / project-init）。零网络访问、零环境变量读取、零数据外传；所有写入仅限当前项目目录内。当用户需要给项目做体检/健康巡检、验证 AI 提交是否真实合规、用自然语言管理任务流转、初始化项目治理骨架，或为不使用 Git 的项目做简易版本快照时，加载本技能并按 SKILL.md「子命令路由表」执行对应脚本。"
+license: MIT
 priority: 90
+metadata:
+  author: clancy-feng
+  version: 1.0.0
+compatibility: "运行环境需 Bash（Windows 建议用 Git Bash）；health-check/commit-check 需在 git 仓库内运行；零网络依赖。"
 ---
 
 # Vibe Coding Toolkit（单包治理工具集）
