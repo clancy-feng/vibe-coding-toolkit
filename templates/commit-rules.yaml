@@ -1,0 +1,18 @@
+# commit-rules.yaml — 提交前缀规则
+#
+# 由 vibe-project-init 生成到项目根 .vibe-coding/ 目录。
+# commit-check / commit-msg 钩子读取本文件校验提交前缀。
+# 你随时可以手动编辑本文件的 prefixes 列表，无需改动 skill 代码。
+
+# 是否启用前缀校验。false 时跳过前缀检查（不阻塞）。
+prefix_check: true
+
+# 允许的提交前缀（不含方括号）。
+# 下面前缀由初始化问答中的"模块命名"与"通用前缀"合并生成，请按需增删。
+prefixes:
+  - FEAT
+  - FIX
+  - DOCS
+  - CHORE
+  - REFACTOR
+  - TEST

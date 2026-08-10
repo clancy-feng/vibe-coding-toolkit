@@ -20,10 +20,17 @@ find_project_root() {
     exit 1
 }
 PROJECT_ROOT="$(find_project_root)"
-MEMORY_DIR="${PROJECT_ROOT}/.workbuddy/memory"
+# 治理记忆目录：优先 .vibe-coding/memory（新项目，由 project-init 生成），回落 .workbuddy/memory（存量项目兼容）
+if [ -d "${PROJECT_ROOT}/.vibe-coding/memory" ]; then
+    MEMORY_DIR="${PROJECT_ROOT}/.vibe-coding/memory"
+elif [ -d "${PROJECT_ROOT}/.workbuddy/memory" ]; then
+    MEMORY_DIR="${PROJECT_ROOT}/.workbuddy/memory"
+else
+    MEMORY_DIR="${PROJECT_ROOT}/.vibe-coding/memory"  # 默认新位置，写入时由脚本创建
+fi
 CACHE_DIR="${PROJECT_ROOT}/.cache/task-manager"
 TASKS_BASE="${PROJECT_ROOT}"
-COMMIT_CHECK_SCRIPT="${HOME}/.workbuddy/skills/commit-check/scripts/commit-check.sh"
+COMMIT_CHECK_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../commit-check" >/dev/null 2>&1 && pwd)/commit-check.sh"  # 同源定位兄弟子命令，不写死全局路径
 LOCK_TIMEOUT=2
 MAX_LOCK_RETRY=5
 LOCKFILE=""  # 全局锁文件，供trap使用
@@ -125,7 +132,11 @@ handle_migrate() {
     local tasks_file="${TASKS_BASE}/TASKS-${module}.md"
     [ -f "$tasks_file" ] || error_exit "TASKS_NOT_FOUND" "任务文件${tasks_file}不存在"
     log_debug "迁移${module}存量任务..."
-    sed -i -E "s/### #([0-9]+) (.*)/echo \"### [$(date '+%Y-%m-%d')-${module}-\$(printf '%03d' \1)] \2\"/e" "$tasks_file"
+    # 纯文本替换：把旧式 "### #123 标题" 改写为 "### [日期-模块-123] 标题"
+    # 不使用 sed /e 开关（避免把任务标题当 shell 命令执行 → 命令注入）
+    local today
+    today=$(date '+%Y-%m-%d')
+    sed -i -E "s/^### #([0-9]+) (.*)/### [${today}-${module}-\1] \2/" "$tasks_file"
     echo "1" > "${CACHE_DIR}/${module}_seq"
     success_exit "{\"module\":\"$module\",\"status\":\"migrated\"}"
 }
@@ -353,7 +364,7 @@ handle_review() {
     local commit_id=$(sed -n 's/.*\*\*commit\*\*:[[:space:]]*\([a-f0-9][a-f0-9]*\).*/\1/p' "$tasks_file" | tail -1)
     [ -n "$commit_id" ] || error_exit "COMMIT_NOT_FOUND" "任务${task_id}未关联commit"
     if [ -f "$COMMIT_CHECK_SCRIPT" ]; then
-        bash "$COMMIT_CHECK_SCRIPT" -m "$commit_id" -b >/dev/null 2>&1 || error_exit "COMMIT_CHECK_FAILED" "commit $commit_id 未通过验证"
+        bash "$COMMIT_CHECK_SCRIPT" -m "$commit_id" >/dev/null 2>&1 || error_exit "COMMIT_CHECK_FAILED" "commit $commit_id 未通过验证"
     fi
     echo -e "\n**审查结果**: ✅ 通过（审查者：${reviewer} 时间：$(date "+%Y-%m-%d %H:%M:%S")）" >> "$tasks_file"
     success_exit "{\"task_id\":\"$task_id\",\"module\":\"$module\",\"review_status\":\"passed\",\"reviewer\":\"$reviewer\"}"

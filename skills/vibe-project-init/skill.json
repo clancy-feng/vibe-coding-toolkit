@@ -1,7 +1,0 @@
-{
-  "name": "vibe-project-init",
-  "version": "1.1.0",
-  "description": "项目首次初始化。通过交互式问答帮非开发背景用户搭建 AI 项目治理骨架，生成 memory/ 系统记忆文件 + TASKS-*.md + project.config。是 PACE 循环的地基 Skill。",
-  "entry": "SKILL.md",
-  "type": "skill"
-}

@@ -1,65 +1,125 @@
-# Vibe Coding Toolkit — AI 项目治理工具集
+# Vibe Coding Toolkit
 
-四个 WorkBuddy Skill，把「AI 帮你写代码」的过程管起来：**项目初始化、角色功能纪律定义、GIT仓库推送验证、任务流转规范化、项目体检**。你定规则，AI 按规则执行，关键节点由你拍板。
+## 一、技能简介
 
----
+**全网首发**：Vibe Coding Toolkit 是「Vibe Project Governance（VPG）」AI 开发项目治理体系的**第一个落地产物**。
 
-## 包含的四个 Skill
+VPG 源自作者对一个核心问题的持续思考——当 AI 开始替我们写代码、做项目，谁来保证它不跑偏、不假交付、不把项目搞成一团乱麻？围绕这个问题，作者沉淀出一套面向非技术用户的 AI 项目治理方法论。Vibe Coding Toolkit 就是把这套方法论变成**能真正装进 AI 开发平台、每天用得上**的工具。
 
-| Skill               | 角色   | 一句话定位           | 核心职责                                                         |
-| ------------------- | ---- | --------------- | ------------------------------------------------------------ |
-| `vibe-project-init` | 初始化  | 定规矩的“骨架生成器”     | 搭建项目治理骨架（模块划分、角色护栏、提交前缀铁律、契约模板），所有其他 Skill 按它定的规则办事；骨架丢失时可重建 |
-| `task-manager`      | 任务流转 | 管 AI 干活的“任务调度员” | 所有 AI 的活必须经过它派发，干完必须经过你审查才算完成，任务状态和进度可跟踪可检查（后台自动调用，无用户操作入口）  |
-| `commit-check`      | 提交质检 | 卡交付的“最后一道关”     | AI 提交代码时自动查：提交记录是否真实存在？提交信息是否带对模块前缀？杜绝交“假作业”                 |
-| `health-check`      | 合规巡检 | 查违规的“体检医生”      | 定期给项目做体检，查 AI 是否按规矩办事、治理骨架是否损坏，只诊断不修理，出问题第一时间报给你             |
+当你用主流 AI 开发平台（如 WorkBuddy、Codex、Cursor、Claude Code 等）帮你写代码、做项目时，经常会遇到几类问题：
 
----
+- AI 说"我做完了、已经提交了"，但你一查，根本没提交（**假交付**）。
+- 单对话操作，项目越来越大，谁改了哪块、为什么改，说不清楚（**责任不清**）。
+- 想从零开始规范一个项目，但不知道治理骨架该怎么搭（**无从下手**）。
+- 项目跑了一阵子，悄悄积累了一些隐患，等到出事才发现（**隐患看不见**）。
 
-## 它们怎么配合
+**Vibe Coding Toolkit** 就是一套针对这些问题的"项目工程治理体系"，本skill的所有设计，都围绕上面两个概念展开：它用四个模块为你搭起一套**工程管理体系**，而这套控制的运行方式，正是**治理框架**所主张的"人审 AI 制"——人掌控方向和规则，AI 负责执行；AI 不能偷偷做主，重要的事必须由人确认。
 
-1. `vibe-project-init` 搭好治理骨架（一次性，或骨架丢失时重建）。
-2. 你要 AI 干活 → 对话框里描述需求，`task-manager` 派任务、给任务 ID。
-3. AI 干完要提交 → `commit-check` 自动验证提交真实性 + 模块前缀合规。
-4. 你定期说“给项目做个体检” → `health-check` 扫描隐患并分级报告。
+## 二、四个模块
 
-四个 Skill 形成闭环：项目由project-init建立、任务经 task-manager 派发、提交经 commit-check 卡关、违规经 health-check 查出，所有操作落盘可追溯。
+这个技能内含四个功能模块，四个模块共同构成前述的治理体系。其中 task-manager 是内部引擎，由 AI 在你使用其他功能时自动调用，不需要手动触发。
 
----
+| 子命令            | 功能   | 一句话定位          | 主要干什么                                      |
+| -------------- | ---- | -------------- | ------------------------------------------ |
+| `health-check` | 项目体检 | 查违规的"巡检员"      | 定期给项目做体检，只报告问题、不改东西，发现隐患第一时间告诉你            |
+| `commit-check` | 交付质检 | 卡交付的"质检员"      | AI 每次提交代码后，自动核查：提交是真的吗？信息写对了吗？             |
+| `task-manager` | 任务调度 | 管 AI 干活的"任务中心" | 所有 AI 的活都经它派发和记录，干完经你审查才算数（后台自动运行，你没有单独入口） |
+| `project-init` | 框架生成 | 定规矩的"奠基者"      | 帮你的项目搭好治理骨架（模块划分、角色护栏、提交规则），骨架丢了还能重建       |
 
-## 安装
+## 三、四个模块的配合
 
-**方式 A：在 WorkBuddy 推荐市场 / ClawHub / SkillHub 搜索对应 Skill 名，一键安装到 `~/.workbuddy/skills/<name>/`。
+1. **`project-init` 搭骨架**：新项目第一次用，或老项目骨架丢了，用它建立**治理框架**基础（一次性）。
+2. **你让 AI 干活**：在对话框描述需求，`task-manager` 自动记任务、给编号。
+3. **AI 干完要提交**：`commit-check` 自动验证"提交是否真实、信息是否合规"。
+4. **你定期说"给项目做个体检"**：`health-check` 扫描隐患，分级报给你。
 
-**方式 B（源码安装）**：
+四个模块形成闭环：项目由 `project-init` 建立 → 任务经 `task-manager` 派发 → 提交经 `commit-check` 卡关 → 违规经 `health-check` 查出。所有操作都写成文件留痕，随时可查——这正是**治理框架**设计的完整运行闭环，也是**内部控制**"每一步留痕"要求的落地。
+
+## 四、简易快照（无 Git 用户的后悔药）
+
+不懂 Git？照样能"存版本、改坏了一键回退"。这是给**不使用 Git 的用户**准备的土法版本管理平替——全量备份 + 一键回滚，越简单越好，听人话。
+
+**和 Git 互斥**：只有你在初始化项目时明确说"不用 Git"，才会启用快照；用 Git 的用户完全无感，该走 Git 走 Git。
+
+**怎么用（直接对 AI 说就行）：**
+
+- "打个版本快照" / "保存当前版本" → 记一下现在的状态，全量备份你指定的目录（默认 `src/`、`config/`，可补充 `data/ docs/`）
+- "看看之前的版本" / "列一下快照" → 列出所有历史快照
+- "回滚到上个版本" / "恢复到某个版本" → 一键还原；**回滚前会自动备份当前版本（保留 7 天），怕回滚错也能救回来**
+- "删除旧快照" → 清理 3 个月前的快照
+
+**几条实话：**
+
+- 只备份你指定的**业务目录**，**绝不**碰 `.git/`、`.workbuddy/`、`.vibe-coding/` 等治理目录。
+- 每次打快照 / 回滚 / 删快照，都**必须你点头**，AI 不会偷偷动。
+- 它**不能替代 Git**——没有协作、没有分支。适合单用户小项目"防手滑"，团队开发还是用 Git。
+
+> 实现细节与配置项见 `modules/project-init.md` 的「子命令：snapshot」专节。
+
+## 五、文档索引
+
+- **本文档（README.md）** = 总览、安装、安全说明。
+- **`docs/health-check.md`** = 健康巡检模块详解：它查什么、怎么触发、报告怎么看。
+- **`docs/commit-check.md`** = 提交验证模块详解：它验证什么、怎么配置前缀规则。
+- **`docs/task-manager.md`** = 任务流转模块详解：任务怎么被派发和记录（内部引擎说明）。
+- **`docs/project-init.md`** = 项目初始化模块详解：怎么搭治理骨架、适配已有项目。
+
+> 技术实现细节（脚本路径、内部逻辑）在 `modules/` 目录，是给 AI / 开发者看的参考，普通用户无需阅读。
+
+## 六、安装
+
+本技能面向主流 AI 开发平台设计（WorkBuddy、Codex、Cursor、Claude Code 等），通过各平台通用的 `skills/` 目录机制加载。
+
+**方式 A（推荐）：市场一键安装**
+在 ClawHub / SkillHub 搜索 `vibe-coding-toolkit`，一键安装。
+
+**方式 B：源码安装**
 
 ```bash
 git clone https://gitee.com/beclancy/vibe-coding-toolkit.git
-# 把需要的 skill 复制到用户级 skills 目录
-cp -r vibe-coding-toolkit/skills/commit-check     ~/.workbuddy/skills/
-cp -r vibe-coding-toolkit/skills/health-check     ~/.workbuddy/skills/
-cp -r vibe-coding-toolkit/skills/task-manager     ~/.workbuddy/skills/
-cp -r vibe-coding-toolkit/skills/vibe-project-init ~/.workbuddy/skills/
+# 安装到所用 AI 开发平台的 skills 目录，下面以 WorkBuddy 为例：
+cp -r vibe-coding-toolkit ~/.workbuddy/skills/
 ```
 
-WorkBuddy 启动时会自动加载 `~/.workbuddy/skills/` 下所有含 `SKILL.md` 的目录。
+主流 AI 开发平台会在启动时自动加载各自 `skills/` 目录下的技能；以 WorkBuddy 为例，加载路径为 `~/.workbuddy/skills/vibe-coding-toolkit/`。
 
----
+## 七、安全说明（如实披露）
 
-## 目录结构
+**内部控制**要求一切行为留痕、可被你审查，所以我们透明地告诉你这个工具会做什么：
+
+- **不联网、不读环境变量、不外传你的任何数据。**
+- **会写文件，但只写在你的项目内部，且运行前会明确提示你**：
+  - 健康巡检会写 `.vibe-coding/memory/HEALTH_AUDIT.md`（体检记录，兼容旧项目的 `.workbuddy/memory/`）和 `.health_state`（连续计数，仅用于提醒你"同一问题反复出现"，不会偷偷把问题严重度调高）。
+  - 项目初始化会写治理骨架文件（只生成治理配置，绝不碰你的业务代码）。
+  - 启用「简易快照」时（仅不用 Git 的用户），会在 `.vibe-coding/snapshots/` 写全量备份、元数据与回滚前临时备份——只备份你指定的业务目录，绝不碰治理目录；每次打/回滚/删快照都需你明确授权。
+- **路径同源**：所有脚本从自身安装位置推导兄弟文件路径，不写死任何全局目录，不会去读你项目以外的文件。
+- **多平台适配**：本工具包已为跨平台（WorkBuddy / Claude Code / Codex / Qoder）预留适配层（`adapter.cfg`），当前版本优先适配 WorkBuddy；后续通过配置切换即可支持其他平台，无需修改项目治理文件。治理根目录统一为项目内的 `.vibe-coding/`，与具体 AI 平台无关，可随项目在任意支持 `skills/` 机制的平台间迁移。
+
+## 八、目录结构
 
 ```
 vibe-coding-toolkit/
-├── README.md                # 本文档
-├── skills/
-│   ├── commit-check/        # 提交质检
-│   ├── health-check/        # 合规巡检
-│   ├── task-manager/        # 任务流转引擎（后台）
-│   └── vibe-project-init/   # 治理骨架初始化
-└── toolkit/                 # 聚合入口占位（规划中）
+├── README.md          # 你正在看的文档（总览）
+├── SKILL.md           # 单包入口（合并触发词与路由）
+├── skill.json         # 版本号 1.0.0
+├── docs/              # 用户向模块详解（本文档的"分"篇）
+│   ├── health-check.md
+│   ├── commit-check.md
+│   ├── task-manager.md
+│   └── project-init.md
+├── modules/           # 技术实现参考（给 AI / 开发者）
+├── scripts/           # 四个子命令脚本
+└── templates/         # 共享模板
 ```
 
----
-
-## 许可
+## 九、许可
 
 MIT
+
+## 十、了解更多 / 关注作者
+
+本工具源自 VPG（Vibe Project Governance）AI 治理体系。相关文章会陆续发布在以下平台，欢迎关注交流：
+
+- 小红书：[AI监工老冯](https://www.xiaohongshu.com/user/profile/66db02af000000001d022ff9)
+- 知乎：[clancy-feng](https://www.zhihu.com/people/clancy-feng)
+- GitHub：[vibe-coding-toolkit](https://github.com/clancy-feng/vibe-coding-toolkit)

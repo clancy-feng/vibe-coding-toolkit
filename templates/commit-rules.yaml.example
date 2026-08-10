@@ -1,0 +1,23 @@
+# commit-rules.yaml — 提交前缀规则
+#
+# 作用：定义 commit-check 校验时允许的前缀。
+# 由 vibe-project-init 初始化时生成到项目根 .workbuddy/ 目录，
+# 也可手动创建 / 编辑本文件。脚本读取它，不内置任何项目特定前缀。
+#
+# 使用：把本文件复制到你的项目根目录 .workbuddy/commit-rules.yaml，
+#       然后按你项目的实际模块修改下面的 prefixes 列表。
+
+# 是否启用前缀校验。false 时 commit-check 跳过前缀检查（不阻塞）。
+prefix_check: true
+
+# 允许的提交前缀（不含方括号）。为空表示放行一切前缀。
+# 下面是一组通用的默认前缀，请按需增删为你的项目模块名。
+prefixes:
+  - FEAT      # 新功能
+  - FIX       # 修复
+  - DOCS      # 文档
+  - CHORE     # 杂项 / 维护
+  - REFACTOR  # 重构
+  - TEST      # 测试
+  - STYLE     # 格式
+  - BUILD     # 构建 / 依赖

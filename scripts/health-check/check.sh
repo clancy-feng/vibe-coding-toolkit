@@ -1,7 +1,9 @@
 #!/bin/bash
 # ============================================
-# check.sh — health-check 项目体检脚本（Vibe 治理框架第四组件）
-# 定位：只诊断、不修理。绝不修改任何业务/治理文件；唯一写入 = HEALTH_AUDIT.md。
+# check.sh — health-check 项目体检脚本（vibe-coding-toolkit 子命令）
+# 定位：只诊断、不修理。绝不修改任何业务/治理文件。
+# 写入目标（如实声明）：HEALTH_AUDIT.md（审计留痕）+ .health_state（连续未清除计数，仅作透明提示，不改变判定等级）。
+# 安全声明：本脚本零网络访问、零环境变量读取、零数据外传；不读取项目目录之外的任何文件（版本核对仅基于自身安装目录的 skill.json）。
 # 兼容：与 task-manager 一致（bash + POSIX awk 2 参数 match）；禁 GNU AWK 三参数 match / grep -oP。
 # ============================================
 set -u
@@ -26,10 +28,17 @@ cd "$PROJECT_ROOT" 2>/dev/null || {
     echo "[health-check] ERROR_SCAN_FAILED：无法进入项目根 ${PROJECT_ROOT}。体检工具异常，请检查版本。" >&2
     exit 2
 }
-MEMORY_DIR="${PROJECT_ROOT}/.workbuddy/memory"
+# 治理记忆目录：优先 .vibe-coding/memory（新项目，由 project-init 生成），回落 .workbuddy/memory（存量项目兼容）
+if [ -d "${PROJECT_ROOT}/.vibe-coding/memory" ]; then
+    MEMORY_DIR="${PROJECT_ROOT}/.vibe-coding/memory"
+elif [ -d "${PROJECT_ROOT}/.workbuddy/memory" ]; then
+    MEMORY_DIR="${PROJECT_ROOT}/.workbuddy/memory"
+else
+    MEMORY_DIR="${PROJECT_ROOT}/.vibe-coding/memory"  # 默认新位置，写入时由脚本创建
+fi
 AUDIT_FILE="${MEMORY_DIR}/HEALTH_AUDIT.md"
 STATE_FILE="${MEMORY_DIR}/.health_state"
-SKILLS_DIR="${HOME}/.workbuddy/skills"
+# TOOLKIT_DIR 在 check_skills 内按脚本同源推导（scripts/health-check → 上两级为安装根），不写死全局路径（消除越界读误判）
 NOW_TS="$(date '+%Y-%m-%d %H:%M:%S')"
 TODAY="$(date '+%Y-%m-%d')"
 DATE_TAG="$(date '+%Y-%m-%d')"
@@ -258,61 +267,62 @@ EOF
 }
 
 # ============================================
-# 巡检项 3 — Skill 版本一致性（不一致/缺失 → P2）
+# 巡检项 3 — 治理工具版本一致性（单包模型：比对项目登记表 vs 已装 umbrella 版本）
+# 设计（用户 2026-08-08 决策）：vibe-coding-toolkit 为单包（1 个 slug + 4 子命令共享 1 个版本号），
+#   故巡检项3 仅比对「项目登记表 SKILL_REGISTRY.md 登记的 toolkit 版本」与「已安装的 umbrella skill.json 版本」，
+#   不再逐个扫描全局 ~/.workbuddy/skills（消除 ClawHub 越界读误判）。
+# 同源定位：TOOLKIT_DIR 由脚本自身路径推导（scripts/health-check → 上两级为安装根），不写死任何全局路径。
 # ============================================
 check_skills() {
-    registry="${MEMORY_DIR}/SKILL_REGISTRY.md"
-    if [ ! -f "$registry" ]; then
-        add_p2 "SKILL_REGISTRY.md 不存在，无法核对 Skill 版本"
-        LINE3="巡检项3 Skill版本一致性: ⚠ P2 — SKILL_REGISTRY.md 缺失"
+    # 同源定位 umbrella 安装根（scripts/health-check/check.sh → ../../）
+    TOOLKIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." >/dev/null 2>&1 && pwd)"
+    if [ ! -f "${TOOLKIT_DIR}/skill.json" ]; then
+        add_p2 "无法定位 vibe-coding-toolkit 安装根（skill.json 缺失），跳过版本核对"
+        LINE3="巡检项3 工具版本一致性: ⚠ P2 — umbrella skill.json 缺失"
         return 0
     fi
-    total=0; mism=0
-    while IFS='|' read -r name rver; do
-        [ -z "$name" ] && continue
-        total=$((total + 1))
-        # registry 版本去 v
-        rver_norm="${rver#v}"
-        skill_md="${SKILLS_DIR}/${name}/SKILL.md"
-        if [ ! -f "$skill_md" ]; then
-            mism=$((mism + 1))
-            add_p2 "Skill ${name}：SKILL.md 不存在（登记版本 ${rver}）"
-            continue
-        fi
-        # 提取 version 字段（大小写兼容），去引号、去 v、去空白
-        fver="$(sed -n 's/^[Vv]ersion:[[:space:]]*//p' "$skill_md" | head -1)"
-        fver="${fver//\"/}"
-        fver="${fver//\'/}"
-        fver="$(echo "$fver" | tr -d '[:space:]')"
-        fver="${fver#v}"
-        if [ -z "$fver" ]; then
-            mism=$((mism + 1))
-            add_p2 "Skill ${name}：SKILL.md 无 version 字段（登记版本 ${rver}）"
-            continue
-        fi
-        if [ "$fver" != "$rver_norm" ]; then
-            mism=$((mism + 1))
-            add_p2 "Skill ${name}：版本不一致（登记 ${rver} vs SKILL.md ${fver}）"
-        fi
-    done <<EOF
-$(awk '
-    /^## 当前生效Skill列表/ { insec=1; next }
-    insec && /^## / { insec=0 }
-    insec && /^\|/ {
-        n=split($0, a, "|")
-        name=a[2]; ver=a[3]
-        gsub(/^ +| +$/,"",name)
-        gsub(/^ +| +$/,"",ver)
-        if (name == "" || name == "Skill名称") next
-        if (name ~ /^-+$/) next
-        print name "|" ver
-    }
-' "$registry")
-EOF
-    if [ "$mism" -gt 0 ]; then
-        LINE3="巡检项3 Skill版本一致性: ⚠ P2 — ${mism}/${total} 个 Skill 版本不一致或缺失"
+    installed="$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*//p' "${TOOLKIT_DIR}/skill.json" | head -1 | tr -d '",' | tr -d '[:space:]')"
+    registry="${MEMORY_DIR}/SKILL_REGISTRY.md"
+    if [ ! -f "$registry" ]; then
+        # 项目未接入治理（无登记表）属正常，仅提示已装版本，不报 P2
+        LINE3="巡检项3 工具版本一致性: ✅ 通过（无登记表；已装 vibe-coding-toolkit v${installed}）"
+        return 0
+    fi
+    # 提取登记表版本：优先匹配 vibe-coding-toolkit 行；否则取首个有效版本（向前兼容旧多 skill 登记表）
+    rver="$(awk '
+        /^## 当前生效Skill列表/ { insec=1; next }
+        insec && /^## / { insec=0 }
+        insec && /^\|/ {
+            n=split($0, a, "|")
+            name=a[2]; ver=a[3]
+            gsub(/^ +| +$/,"",name); gsub(/^ +| +$/,"",ver)
+            if (name ~ /vibe-coding-toolkit/) { print ver; exit }
+        }
+    ' "$registry")"
+    if [ -z "$rver" ]; then
+        rver="$(awk '
+            /^## 当前生效Skill列表/ { insec=1; next }
+            insec && /^## / { insec=0 }
+            insec && /^\|/ {
+                n=split($0, a, "|")
+                name=a[2]; ver=a[3]
+                gsub(/^ +| +$/,"",name); gsub(/^ +| +$/,"",ver)
+                if (name == "" || name == "Skill名称") next
+                if (name ~ /^-+$/) next
+                print ver; exit
+            }
+        ' "$registry")"
+    fi
+    if [ -z "$rver" ]; then
+        LINE3="巡检项3 工具版本一致性: ✅ 通过（登记表无版本条目；已装 v${installed}）"
+        return 0
+    fi
+    rver_norm="${rver#v}"
+    if [ "$installed" != "$rver_norm" ]; then
+        add_p2 "vibe-coding-toolkit 版本不一致（登记表 ${rver} vs 已装 ${installed}）— 建议统一版本号"
+        LINE3="巡检项3 工具版本一致性: ⚠ P2 — 版本不一致（登记 ${rver} vs 已装 ${installed}）"
     else
-        LINE3="巡检项3 Skill版本一致性: ✅ 通过（${total} 个 Skill 版本全部一致）"
+        LINE3="巡检项3 工具版本一致性: ✅ 通过（登记 v${rver} = 已装 v${installed}）"
     fi
 }
 
@@ -472,26 +482,13 @@ if [ -z "$ONLY" ]; then
     echo "$streak" > "$STATE_FILE"
 fi
 
-# ---------- P1 自动升 P0（连续 3 次 P0/P1 未清除 → 本次 P1 升 P0）----------
-# 规则焊死：仅重分类严重度（输出为 P0），不阻断 task-manager 流转（冻结留 TODO）。
-escalated=0
-if [ -z "$ONLY" ]; then
-    if [ "$streak" -ge 3 ] && [ "$n1" -gt 0 ]; then
-        old_n1=$n1
-        if [ "$n0" -eq 0 ]; then
-            P0_MSGS=("${P1_MSGS[@]}")
-        else
-            P0_MSGS=("${P0_MSGS[@]}" "${P1_MSGS[@]}")
-        fi
-        n0=$((n0 + old_n1))
-        n1=0
-        P1_MSGS=()
-        escalated=1
-        echo "⚠ 连续 ${streak} 次体检发现 P1 未处理，已自动升级为 P0 致命问题" >&2
-    fi
-fi
+# ---------- 连续未清除提示（仅透明提示，不自动升级严重度）----------
+# 规则（用户 2026-08-08 决策）：streak 仅用于提醒「同一问题反复出现」，绝不改变本次判定等级；
+#   P1 保持 P1，不自动升 P0（避免隐藏历史篡改当前仓库结论）。
 n0=${#P0_MSGS[@]}; n1=${#P1_MSGS[@]}
 
+# ---------- 写前披露（ClawHub 信任边界要求：写文件前明确提示用户）----------
+echo "[health-check] 即将写入审计日志（${AUDIT_FILE#$PROJECT_ROOT/}）与连续计数（.health_state）；此为 skill 正常功能，不读取项目外任何文件。" >&2
 # ---------- 写审计日志（自动创建，不报错）----------
 ensure_audit
 {
@@ -505,8 +502,7 @@ ensure_audit
     [ -n "$GIT_WARN" ] && echo "- 降级: ${GIT_WARN}"
     echo "- 结论: P0=${n0} P1=${n1} P2=${n2}"
     if [ -z "$ONLY" ]; then
-        echo "- 连续未清除计数(P0/P1)=${streak}（冻结功能留 TODO，暂不实现；严禁调用 task-manager 任何冻结命令）"
-        [ "$escalated" -eq 1 ] && echo "- P1 自动升 P0：已触发（连续 ${streak} 次 P1 未清除）"
+        echo "- 连续未清除计数(P0/P1)=${streak}（仅提示，等级不变；P1 不会自动升 P0）"
     fi
     i=0; while [ "$i" -lt "$n0" ]; do echo "  - [P0] ${P0_MSGS[$i]}"; i=$((i+1)); done
     i=0; while [ "$i" -lt "$n1" ]; do echo "  - [P1] ${P1_MSGS[$i]}"; i=$((i+1)); done
@@ -553,7 +549,7 @@ else
 fi
 
 if [ -z "$ONLY" ] && [ "$streak" -ge 3 ]; then
-    echo "⚠ 已连续 ${streak} 次体检发现 P0/P1 未清除（冻结功能留 TODO，暂不实现；如需人工冻结请另开 task-manager 任务）"
+    echo "ℹ️ 已连续 ${streak} 次体检发现 P0/P1 未清除（仅供参考；本次结论仍以当前仓库状态为准，P1 不会自动升 P0）"
 fi
 
 echo "已写入审计: ${AUDIT_FILE#$PROJECT_ROOT/}"
