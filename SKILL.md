@@ -98,4 +98,4 @@ compatibility: "运行环境需 Bash（Windows 建议用 Git Bash）；health-ch
 
 ## 共享模板
 
-初始化与提交钩子用到的模板统一放在 `templates/` 顶层目录（`RULES.template.md` / `commit-msg.hook.txt` / `commit-rules.yaml` / `commit-rules.example.txt`），由各子命令脚本从自身安装目录同源定位读取，不写死全局路径。
+初始化与提交钩子用到的模板统一放在 `templates/` 顶层目录（`RULES.template.md` / `commit-msg.sh` / `commit-rules.yaml` / `commit-rules.example.yaml`），由各子命令脚本从自身安装目录同源定位读取，不写死全局路径。

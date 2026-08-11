@@ -29,7 +29,7 @@ AI 开发窗口声称"已提交"后，用确定性脚本验证三件事：
 - 配置文件格式错误：脚本做容错解析，不会崩溃；遇到无法读取的情况按"跳过"处理并提示。
 - **只校验最新一次已提交（HEAD）**，历史 commit 完全豁免。
 
-**自定义方式**：编辑项目根 `commit-rules.yaml` 的 `prefixes` 列表即可，无需改动本子命令代码。参考模板见 `templates/commit-rules.example.txt`。
+**自定义方式**：编辑项目根 `commit-rules.yaml` 的 `prefixes` 列表即可，无需改动本子命令代码。参考模板见 `templates/commit-rules.example.yaml`。
 
 ## 命令
 

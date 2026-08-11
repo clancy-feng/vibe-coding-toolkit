@@ -377,7 +377,7 @@ generate_commit_rules() {
 
 # 安装 commit-msg 钩子（源头拦截非法前缀；POSIX 兼容，无脚本特定语法）
 install_commit_msg_hook() {
-    local hook_src="$(dirname "${BASH_SOURCE[0]}")/../../templates/commit-msg.hook.txt"
+    local hook_src="$(dirname "${BASH_SOURCE[0]}")/../../templates/commit-msg.sh"
     [ "${HOOK_ENABLED}" = "true" ] || { log_warn "钩子已配置为关闭（HOOK_ENABLED=false），跳过安装"; return 0; }
     [ -f "${hook_src}" ] || { log_warn "未找到钩子模板，跳过安装"; return 0; }
     [ -d ".git" ] || { log_warn "当前目录非 git 仓库，跳过钩子安装"; return 0; }

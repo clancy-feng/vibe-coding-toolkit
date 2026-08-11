@@ -85,7 +85,7 @@ HELPEOF
 load_prefix_rules() {
   PREFIX_CHECK_ENABLED=false
   PREFIX_LIST=""
-  # 前缀规则三级回落（与 vibe-project-init 的 commit-msg.hook.txt 同源逻辑）：
+  # 前缀规则三级回落（与 vibe-project-init 的 commit-msg.sh 同源逻辑）：
   #   1. .vibe-coding/adapter.cfg 存在 → 用白名单提取 COMMIT_RULES（绝不 source，防任意代码执行）
   #   2. 否则回落 .vibe-coding/commit-rules.yaml
   #   3. 否则回落 .workbuddy/commit-rules.yaml（兼容未迁移旧项目，如 rl-rush-buy）
