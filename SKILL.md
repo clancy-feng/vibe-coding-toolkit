@@ -2,7 +2,10 @@
 name: "vibe-coding-toolkit"
 title: "Vibe Coding Toolkit"
 slug: "vibe-coding-toolkit"
+displayName: "Vibe Coding Toolkit"
+summary: "全网首发，VPG治理体系skill"
 version: "1.0.0"
+tags: ["AI项目治理", "开发效率", "项目管理", "版本控制"]
 description: "Vibe Coding Toolkit — 面向非技术用户的 AI 项目治理工具包（单包，含 4 个子命令：health-check / commit-check / task-manager / project-init）。零网络访问、零环境变量读取、零数据外传；所有写入仅限当前项目目录内。当用户需要给项目做体检/健康巡检、验证 AI 提交是否真实合规、用自然语言管理任务流转、初始化项目治理骨架，或为不使用 Git 的项目做简易版本快照时，加载本技能并按 SKILL.md「子命令路由表」执行对应脚本。"
 license: MIT
 priority: 90
@@ -95,4 +98,4 @@ compatibility: "运行环境需 Bash（Windows 建议用 Git Bash）；health-ch
 
 ## 共享模板
 
-初始化与提交钩子用到的模板统一放在 `templates/` 顶层目录（`RULES.template.md` / `commit-msg.hook` / `commit-rules.yaml` / `commit-rules.yaml.example`），由各子命令脚本从自身安装目录同源定位读取，不写死全局路径。
+初始化与提交钩子用到的模板统一放在 `templates/` 顶层目录（`RULES.template.md` / `commit-msg.hook.txt` / `commit-rules.yaml` / `commit-rules.example.txt`），由各子命令脚本从自身安装目录同源定位读取，不写死全局路径。

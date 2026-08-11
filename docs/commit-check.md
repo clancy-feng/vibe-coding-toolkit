@@ -53,7 +53,7 @@ prefixes:
 - 没有规则 / 关闭校验 / 前缀为空：自动跳过前缀检查，不阻塞提交。
 - 只查最新一次提交，历史提交不翻旧账。
 
-直接编辑项目的 `commit-rules.yaml` 可修改前缀列表，参考模板见 `templates/commit-rules.yaml.example`。
+直接编辑项目的 `commit-rules.yaml` 可修改前缀列表，参考模板见 `templates/commit-rules.example.txt`。
 
 ## 五、你会看到什么
 
