@@ -3,7 +3,7 @@
 # check.sh — health-check 项目体检脚本（vibe-coding-toolkit 子命令）
 # 定位：只诊断、不修理。绝不修改任何业务/治理文件。
 # 写入目标（如实声明）：HEALTH_AUDIT.md（审计留痕）+ .health_state（连续未清除计数，仅作透明提示，不改变判定等级）。
-# 安全声明：本脚本零网络访问、零环境变量读取、零数据外传；不读取项目目录之外的任何文件（版本核对仅基于自身安装目录的 skill.json）。
+# 安全声明：本脚本零网络访问、零环境变量读取、零数据外传；仅在被体检项目目录内读写文件（审计日志与计数），版本核对仅读取自身安装目录的 skill.json（由脚本自身路径推导位置）。
 # 兼容：与 task-manager 一致（bash + POSIX awk 2 参数 match）；禁 GNU AWK 三参数 match / grep -oP。
 # ============================================
 set -u
@@ -28,6 +28,13 @@ cd "$PROJECT_ROOT" 2>/dev/null || {
     echo "[health-check] ERROR_SCAN_FAILED：无法进入项目根 ${PROJECT_ROOT}。体检工具异常，请检查版本。" >&2
     exit 2
 }
+
+# 统一运行日志（1.2.0）：health-check 结论落盘 .vibe-coding/logs/health-check-<日期>-<时间>.log
+# 界面输出保持不变，关键节点用 log_raw 仅写文件（本脚本 set -u，log 库兼容）
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/log.sh"
+log_init "health-check"
+log_raw "INFO" "health-check 启动（项目根：${PROJECT_ROOT}）"
 # 治理记忆目录：优先 .vibe-coding/memory（新项目，由 project-init 生成），回落 .workbuddy/memory（存量项目兼容）
 if [ -d "${PROJECT_ROOT}/.vibe-coding/memory" ]; then
     MEMORY_DIR="${PROJECT_ROOT}/.vibe-coding/memory"
@@ -120,6 +127,7 @@ do_respond() {
             esac ;;
         *)
             echo "[health-check] ERROR_SCAN_FAILED：未知级别「${level}」。体检工具异常，请检查版本。" >&2
+            log_raw "ERROR" "未知级别「${level}」，退出"
             exit 2 ;;
     esac
     echo "$msg"
@@ -553,4 +561,5 @@ if [ -z "$ONLY" ] && [ "$streak" -ge 3 ]; then
 fi
 
 echo "已写入审计: ${AUDIT_FILE#$PROJECT_ROOT/}"
+log_raw "SUCCESS" "health-check 完成：审计已写入 ${AUDIT_FILE#$PROJECT_ROOT/}（P0=${n0:-0}，P1=${n1:-0}，P2=${n2:-0}）"
 exit 0

@@ -3,43 +3,46 @@ set -euo pipefail
 
 # ============================================
 # task-manager.sh — Vibe 项目内部执行引擎（Windows Git Bash兼容版）
-# 修正说明：修复flock依赖、sed多行匹配、前缀校验、存量任务迁移等问题
 # ============================================
 
 # ---------- 核心路径配置 ----------
 find_project_root() {
     local dir="$(pwd)"
     while [ "$dir" != "/" ]; do
-        if [ -d "$dir/.git" ]; then
+        if [ -d "$dir/.git" ] || [ -d "$dir/.vibe-coding" ]; then
             echo "$dir"
             return 0
         fi
         dir="$(dirname "$dir")"
     done
-    echo "{\"success\":false,\"code\":\"PROJECT_ROOT_NOT_FOUND\",\"message\":\"未找到项目根目录（无.git文件夹），请在项目根目录下调用本脚本\"}" >&2
+    echo "{\"success\":false,\"code\":\"PROJECT_ROOT_NOT_FOUND\",\"message\":\"未找到项目根目录（无 .git 或 .vibe-coding），请在项目根目录下调用本脚本\"}" >&2
     exit 1
 }
 PROJECT_ROOT="$(find_project_root)"
-# 治理记忆目录：优先 .vibe-coding/memory（新项目，由 project-init 生成），回落 .workbuddy/memory（存量项目兼容）
 if [ -d "${PROJECT_ROOT}/.vibe-coding/memory" ]; then
     MEMORY_DIR="${PROJECT_ROOT}/.vibe-coding/memory"
 elif [ -d "${PROJECT_ROOT}/.workbuddy/memory" ]; then
     MEMORY_DIR="${PROJECT_ROOT}/.workbuddy/memory"
 else
-    MEMORY_DIR="${PROJECT_ROOT}/.vibe-coding/memory"  # 默认新位置，写入时由脚本创建
+    MEMORY_DIR="${PROJECT_ROOT}/.vibe-coding/memory"  
 fi
 CACHE_DIR="${PROJECT_ROOT}/.cache/task-manager"
 TASKS_BASE="${PROJECT_ROOT}"
-COMMIT_CHECK_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../commit-check" >/dev/null 2>&1 && pwd)/commit-check.sh"  # 同源定位兄弟子命令，不写死全局路径
+COMMIT_CHECK_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../commit-check" >/dev/null 2>&1 && pwd)/commit-check.sh"  
 LOCK_TIMEOUT=2
 MAX_LOCK_RETRY=5
-LOCKFILE=""  # 全局锁文件，供trap使用
+LOCKFILE=""  
 
 # ---------- 工具函数 ----------
 log_debug() { echo "[DEBUG] $1" >&2; }
+# 统一运行日志（1.2.0）：task-manager 输出是 JSON（AI 消费），日志只写文件（log_raw），不污染 stdout
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/log.sh"
+log_init "task-manager"
 error_exit() {
     local code="$1"
     local msg="$2"
+    log_raw "ERROR" "任务流转失败：${code} - ${msg}"
     echo "{\"success\":false,\"code\":\"$code\",\"message\":\"$msg\"}"
     exit 1
 }
@@ -47,6 +50,44 @@ success_exit() {
     local data="$1"
     echo "{\"success\":true,\"code\":\"TASK_OPERATION_SUCCESS\",\"message\":\"操作成功\",\"data\":$data}"
     exit 0
+}
+
+# 自动提交联动（1.2.0 起版本管理统一本地 git）：
+# 任务完成时自动 git add + commit（消息 [模块] 任务ID: 标题），对标原"任务完成自动存一版"，
+# 用户不接触 git 命令。非 git 仓库或 commit 失败时不阻塞（任务流转仍完成，交由 AI 提示）。
+auto_commit() {
+    local task_id="$1" title="$2" module="$3"
+    local repo="${PROJECT_ROOT}"
+    # Windows Git Bash 下 PROJECT_ROOT 是 /c/... POSIX 格式，Windows 版 git 不认，转成 C:/...
+    if command -v cygpath >/dev/null 2>&1; then
+        repo="$(cygpath -m "$repo" 2>/dev/null || echo "$repo")"
+    fi
+    # 确保在 git 仓库内
+    if ! git -C "$repo" rev-parse --git-dir >/dev/null 2>&1; then
+        log_debug "非 git 仓库，跳过自动提交"
+        return 0
+    fi
+    # 无改动则跳过（工作区干净）
+    if [ -z "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
+        log_debug "工作区无改动，跳过自动提交"
+        return 0
+    fi
+    git -C "$repo" add -A 2>/dev/null || true
+    local msg="[${module}] ${task_id}: ${title}"
+    if ! git -C "$repo" commit -m "$msg" >/dev/null 2>&1; then
+        # 本地身份缺失（首次 commit 未配 user.name/email）时自动兜底：仅本项目配置，不碰全局
+        git -C "$repo" config user.name "vibe-coding-bot" 2>/dev/null || true
+        git -C "$repo" config user.email "vibe-coding@local" 2>/dev/null || true
+        if ! git -C "$repo" commit -m "$msg" >/dev/null 2>&1; then
+            log_debug "自动提交失败：${msg}"
+            echo ""
+            return 0
+        fi
+    fi
+    local hash
+    hash="$(git -C "$repo" rev-parse --short HEAD 2>/dev/null || echo "???")"
+    log_debug "自动提交成功：${msg}（${hash}）"
+    echo "$hash"
 }
 
 # ---------- 跨平台文件锁（无flock依赖）----------
@@ -78,15 +119,21 @@ acquire_lock() {
 # ---------- 加载规则（兼容无合法前缀行场景）----------
 load_rules() {
     local rules_file="${MEMORY_DIR}/RULES.md"
-    local project_config="${MEMORY_DIR}/project.config"
+    # 1.2.0：project.config 已并入 adapter.cfg（唯一配置文件）；存量项目回落 memory/project.config
+    local project_config=""
+    if grep -q '^GIT_STATUS=' "${PROJECT_ROOT}/.vibe-coding/adapter.cfg" 2>/dev/null; then
+        project_config="${PROJECT_ROOT}/.vibe-coding/adapter.cfg"
+    elif [ -f "${MEMORY_DIR}/project.config" ]; then
+        project_config="${MEMORY_DIR}/project.config"
+    fi
     if [ ! -f "$rules_file" ]; then
         error_exit "RULES_NOT_FOUND" "未找到项目专属规则文件：${rules_file}"
     fi
     export RULES_FILE="$rules_file"
     export PROJECT_CONFIG="$project_config"
-    # 默认合法前缀，优先从project.config读
+    # 默认合法前缀，优先从配置文件读
     VALID_PREFIXES="PC,ANDROID,CLOUD,MEMORY,DOCS,FIX,TOOL"
-    if [ -f "$project_config" ]; then
+    if [ -n "$project_config" ] && [ -f "$project_config" ]; then
         VALID_PREFIXES=$(sed -n 's/^VALID_PREFIXES=\([^[:space:]]*\).*/\1/p' "$project_config" 2>/dev/null)
         [ -z "$VALID_PREFIXES" ] && VALID_PREFIXES="PC,ANDROID,CLOUD,MEMORY,DOCS,FIX,TOOL"
     fi
@@ -109,7 +156,7 @@ check_permission() {
             return 0
         fi
     fi
-    error_exit "PERMISSION_DENIED" "操作主体$actor无模块$module的操作权限（AI角色需匹配ai-<模块名小写>，如ai-pc对应PC模块）"
+    error_exit "PERMISSION_DENIED" "操作主体$actor无模块$module的操作权限（AI角色需匹配ai-<模块名小写>，如ai-${module}对应${module}模块）"
 }
 
 # ---------- 任务ID生成 ----------
@@ -143,7 +190,7 @@ handle_migrate() {
 
 # ---------- Handler：创建任务 ----------
 handle_create() {
-    local module="$1" title="$2" actor="$3" problem="$4" change="${5:-}" verify="${6:-}"
+    local module="$1" title="$2" actor="$3" problem="$4" change="${5:-}" verify="${6:-}" files="${7:-}"
     # 强制校验：问题描述必须提供且不能为空壳（根治 create 产出 [待补充] 空壳）
     if [ -z "$problem" ] || [ "$problem" = "[待补充]" ]; then
         error_exit "CREATE_INCOMPLETE" "问题描述不能为空，请 Coordinator 先根据用户自然语言提炼问题后再创建"
@@ -169,9 +216,18 @@ ${problem}
 ${change:-[待补充]}
 ### 验证结果
 ${verify:-[待补充]}
+**改动文件**: ${files:-[待补充]}
 ---
 EOF
     success_exit "{\"task_id\":\"$task_id\",\"module\":\"$module\",\"status\":\"pending\"}"
+}
+
+# ---------- task_id 模块段格式校验（防路径穿越）----------
+# 从 task_id 提取的模块段必须为英文标识符（字母/数字/下划线/连字符），
+# 否则可能拼出越界文件路径；非法直接拒绝。
+validate_task_id() {
+    local module="$1"
+    [[ "$module" =~ ^[A-Za-z0-9_-]+$ ]] || error_exit "INVALID_TASK_ID" "任务ID非法：模块段包含非法字符"
 }
 
 # ---------- Handler：更新待认领任务内容 ----------
@@ -183,6 +239,7 @@ handle_update() {
         *) error_exit "UPDATE_INVALID_FIELD" "不支持的字段：${field}（仅支持 title/problem/change/verify/desc）" ;;
     esac
     local module=$(echo "$task_id" | cut -d'-' -f4)
+    validate_task_id "$module"
     check_permission "$module" "$actor"
     local tasks_file="${TASKS_BASE}/TASKS-${module}.md"
     [ -f "$tasks_file" ] || error_exit "TASKS_NOT_FOUND" "任务文件${tasks_file}不存在"
@@ -244,6 +301,7 @@ handle_update() {
 handle_claim() {
     local task_id="$1" actor="$2"
     local module=$(echo "$task_id" | cut -d'-' -f4)
+    validate_task_id "$module"
     check_permission "$module" "$actor"
 
     local tasks_file="${TASKS_BASE}/TASKS-${module}.md"
@@ -277,24 +335,37 @@ handle_claim() {
 handle_complete() {
     local task_id="$1" commit_id="$2" report="$3" actor="$4"
     local module=$(echo "$task_id" | cut -d'-' -f4)
+    validate_task_id "$module"
     check_permission "$module" "$actor"
 
-    # 校验commit前缀
-    local commit_msg=$(git log --pretty=format:%s -1 "$commit_id" 2>/dev/null || echo "")
-    local prefix=$(echo "$commit_msg" | sed -n 's/^\[\([^]]*\)\].*/\1/p')
-    echo "$VALID_PREFIXES" | grep -qw "$prefix" || error_exit "RULE_VIOLATED" "前缀[$prefix]不符合要求，合法前缀：${VALID_PREFIXES}"
-
-    # 校验Git状态
+    # 读取项目 Git 状态（1.2.0 起统一本地 git，GIT_STATUS=new/existing；存量项目可能残留 none，跳过校验宽容处理）
     local git_status="init"
     if [ -f "$PROJECT_CONFIG" ]; then
         git_status=$(sed -n 's/^GIT_STATUS=\([^[:space:]]*\).*/\1/p' "$PROJECT_CONFIG" 2>/dev/null)
         [ -z "$git_status" ] && git_status="init"
     fi
+
+    # 自动提交联动：先 auto_commit 生成真实 commit（消息 [模块] 任务ID: 标题），
+    # 拿到 hash 作为 commit_id，再走前缀/存在性校验；用户传入的 commit_id 保留（外部提交场景）
+    local tasks_file="${TASKS_BASE}/TASKS-${module}.md"
+    local task_title=""
+    [ -f "$tasks_file" ] && task_title="$(sed -n "s/^### \[${task_id}\] //p" "$tasks_file" 2>/dev/null || true)"
+    local auto_hash
+    auto_hash="$(auto_commit "${task_id}" "${task_title}" "${module}")"
+    [ -n "$auto_hash" ] && commit_id="$auto_hash"
+
+    # 校验commit前缀（git 管理项目；存量 none 项目跳过）
+    if [ "$git_status" != "none" ]; then
+        local commit_msg=$(git log --pretty=format:%s -1 "$commit_id" 2>/dev/null || echo "")
+        local prefix=$(echo "$commit_msg" | sed -n 's/^\[\([^]]*\)\].*/\1/p')
+        echo "$VALID_PREFIXES" | grep -qw "$prefix" || error_exit "RULE_VIOLATED" "前缀[$prefix]不符合要求，合法前缀：${VALID_PREFIXES}"
+    fi
+
+    # 校验Git状态（存量 none 项目跳过 commit 存在性校验）
     if [ "$git_status" != "none" ] && ! git rev-parse --verify "$commit_id" >/dev/null 2>&1; then
         error_exit "COMMIT_INVALID" "commit $commit_id不存在"
     fi
 
-    local tasks_file="${TASKS_BASE}/TASKS-${module}.md"
     acquire_lock "$tasks_file"
 
     # 用awk多行匹配检查是否已认领（和list逻辑完全一致）
@@ -350,6 +421,20 @@ handle_complete() {
         fi
     fi
 
+    # 将汇报中的"改动文件"清单写回任务条目（供自动快照读取；缺省不写、不报错）
+    local r_files
+    r_files="$(printf '%s\n' "$report" | sed -n 's/^\*\*改动文件\*\*:[[:space:]]*//p' | head -n1)"
+    if [ -n "$r_files" ]; then
+        TM_TID="$task_id" TM_FILES="$r_files" awk '
+            $0 ~ "^### \\[" ENVIRON["TM_TID"] "\\]" { in_task=1; print; next }
+            in_task && /^\*\*改动文件\*\*:/ { print "**改动文件**: " ENVIRON["TM_FILES"]; next }
+            in_task && /^---$/ { in_task=0; print; next }
+            { print }
+        ' "$tasks_file" > "${tasks_file}.tmp" && mv "${tasks_file}.tmp" "$tasks_file"
+    fi
+
+    # 自动提交已在前置完成（auto_commit），commit_id 已更新为真实 hash
+    log_raw "SUCCESS" "任务完成：${task_id}（模块 ${module}，commit ${commit_id:-无}）"
     success_exit "{\"task_id\":\"$task_id\",\"module\":\"$module\",\"status\":\"done\",\"commit_id\":\"$commit_id\"}"
 }
 
@@ -357,11 +442,23 @@ handle_complete() {
 handle_review() {
     local task_id="$1" reviewer="$2"
     local module=$(echo "$task_id" | cut -d'-' -f4)
+    validate_task_id "$module"
     check_permission "$module" "coordinator"
     local tasks_file="${TASKS_BASE}/TASKS-${module}.md"
+    [ -f "$tasks_file" ] || error_exit "TASK_FILE_NOT_FOUND" "任务文件不存在：${tasks_file}"
     acquire_lock "$tasks_file"
-    grep -qF "**状态**: ✅ 已完成" "$tasks_file" || error_exit "TASK_NOT_COMPLETED" "任务${task_id}未完成"
-    local commit_id=$(sed -n 's/.*\*\*commit\*\*:[[:space:]]*\([a-f0-9][a-f0-9]*\).*/\1/p' "$tasks_file" | tail -1)
+    # 仅提取目标任务块（### [task_id] 起到下一个 ### 或 --- 分隔符为止），在块内判定完成状态与提取 commit，
+    # 杜绝「借」同文件其他任务的已完成状态 / commit 通过审查（原实现 grep 全文件 + tail -1 取最后一条，存在越权漏洞）。
+    local block
+    block=$(awk -v tid="$task_id" '
+        $0 ~ "### \\[" tid "\\]" { in_task=1 }
+        in_task && /^### \[/ && $0 !~ "### \\[" tid "\\]" { exit }
+        in_task && /^---$/ { exit }
+        in_task { print }
+    ' "$tasks_file")
+    [ -n "$block" ] || error_exit "TASK_NOT_FOUND" "任务${task_id}不存在于${tasks_file}"
+    printf '%s\n' "$block" | grep -qF "**状态**: ✅ 已完成" || error_exit "TASK_NOT_COMPLETED" "任务${task_id}未完成"
+    local commit_id=$(printf '%s\n' "$block" | sed -n 's/.*\*\*commit\*\*:[[:space:]]*\([a-f0-9][a-f0-9]*\).*/\1/p' | tail -1)
     [ -n "$commit_id" ] || error_exit "COMMIT_NOT_FOUND" "任务${task_id}未关联commit"
     if [ -f "$COMMIT_CHECK_SCRIPT" ]; then
         bash "$COMMIT_CHECK_SCRIPT" -m "$commit_id" >/dev/null 2>&1 || error_exit "COMMIT_CHECK_FAILED" "commit $commit_id 未通过验证"

@@ -43,12 +43,20 @@ safe_cfg_get() {
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)
 
 # ── 路径初始化 ──────────────────────────────────────────
+# 1.2.0：版本管理统一本地 git，不再有"快照模式"；非 git 仓库直接报错退出
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -z "$REPO_ROOT" ]; then
-  echo "❌ 错误：当前目录不在 Git 仓库中"
+  echo "❌ 错误：当前目录不是 Git 仓库（commit-check 仅支持 git 管理项目，1.2.0 起版本管理统一本地 git）" >&2
+  echo "   → 请先运行 vibe-project-init 初始化（自动 git init），或确认在项目根目录下执行" >&2
   exit 2
 fi
 cd "$REPO_ROOT" || { echo "❌ 错误：无法进入仓库目录 $REPO_ROOT"; exit 2; }
+
+# ── 统一运行日志（1.2.0）：结论落盘 .vibe-coding/logs/commit-check-<日期>-<时间>.log ──
+# 界面报告结构保持不变，结论用 log_raw 仅写文件
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/log.sh"
+log_init "commit-check"
 
 # ── 前缀规则（由配置加载，不硬编码）─────────────────────
 PREFIX_CHECK_ENABLED=false
@@ -69,6 +77,7 @@ AI Commit 真实性 & 合规性验证。验证三项：
   -s    仅检查 git status（工作区干净 + commit 存在）
   -m    仅检查 commit message 前缀
   -o    仅检查 commit 归属（属于当前项目）
+  -r    指定要校验的 commit（commit-ish，默认 HEAD）
   无选项  三项全检
 
 前缀校验规则来源:
@@ -220,12 +229,13 @@ main() {
   local do_ownership=false
 
   local COMMIT_REF="HEAD"
-  while getopts "hsm:o" opt 2>/dev/null; do
+  while getopts "hsm:or:" opt 2>/dev/null; do
     case $opt in
       h) usage; exit 0 ;;
       s) check_all=false; do_real=true ;;
       m) check_all=false; do_prefix=true; COMMIT_REF="$OPTARG" ;;
       o) check_all=false; do_ownership=true ;;
+      r) COMMIT_REF="$OPTARG" ;;
       *) echo "未知选项: -$opt" >&2; usage >&2; exit 1 ;;
     esac
   done
@@ -280,6 +290,7 @@ main() {
     fi
     [ "$do_ownership" = true ] && echo "✅ commit 归属: 通过 (属于当前项目)"
     echo ""
+    log_raw "SUCCESS" "commit-check 通过：commit ${hash}，真实性/前缀/归属校验通过"
     exit 0
   fi
 
@@ -355,6 +366,7 @@ main() {
 
   echo "修复后再次运行 bash $SCRIPT_DIR/commit-check.sh 确认。\""
   echo ""
+  log_raw "ERROR" "commit-check 未通过：${total_fail} 项检查失败（真实性/前缀/归属）"
   exit 1
 }
 

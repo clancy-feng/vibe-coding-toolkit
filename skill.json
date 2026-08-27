@@ -2,9 +2,9 @@
   "name": "vibe-coding-toolkit",
   "title": "Vibe Coding Toolkit",
   "slug": "vibe-coding-toolkit",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "type": "skill",
-  "description": "Vibe Coding Toolkit — 面向非技术用户的 AI 项目治理工具包（单包，含 4 个子命令：health-check / commit-check / task-manager / project-init）。零网络访问、零环境变量读取、零数据外传；所有写入仅限当前项目目录内。各子命令的触发词与用法见 SKILL.md 路由表。",
+  "description": "Vibe Coding Toolkit — 面向非技术用户的 AI 项目治理工具包（单包，含 4 个模块：health-check / commit-check / task-manager / project-init）。零网络访问、零数据外传；仅读取平台注入的工作区变量与家目录用于平台探测；所有写入仅限当前项目目录内。当用户需要给项目做体检/健康巡检、验证 AI 提交是否真实合规、用自然语言管理任务流转、初始化项目治理骨架（自动建本地 git 库并管理版本，不需要账号，用户零操作）时，加载本技能并按 SKILL.md「子命令路由表」执行对应脚本。",
   "author": "clancy-feng",
   "tags": ["governance", "vibe-coding", "project-management", "ai-collaboration"],
   "entry": "SKILL.md"
